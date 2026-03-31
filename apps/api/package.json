@@ -1,0 +1,43 @@
+{
+  "name": "@auto-recruit/api",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch --env-file=../../.env src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@auto-recruit/config": "workspace:*",
+    "@auto-recruit/db": "workspace:*",
+    "@auto-recruit/types": "workspace:*",
+    "@google-cloud/error-reporting": "^3.0.0",
+    "@google-cloud/pubsub": "^4.4.0",
+    "@google-cloud/storage": "^7.12.0",
+    "cors": "^2.8.5",
+    "csv-stringify": "^6.5.0",
+    "dotenv": "^16.4.0",
+    "express": "^4.19.0",
+    "express-rate-limit": "^7.3.0",
+    "firebase-admin": "^12.3.0",
+    "helmet": "^7.1.0",
+    "multer": "^1.4.5-lts.1",
+    "papaparse": "^5.4.1",
+    "uuid": "^10.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/multer": "^1.4.11",
+    "@types/node": "^20.14.0",
+    "@types/papaparse": "^5.3.14",
+    "@types/uuid": "^10.0.0",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0"
+  }
+}

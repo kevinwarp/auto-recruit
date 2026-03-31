@@ -1,0 +1,441 @@
+// Auto Recruiter — Prisma Schema
+// Targeting Cloud SQL Postgres 15
+
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../generated/client"
+  previewFeatures = ["fullTextSearch"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Users (Firebase Auth mirror) ────────────────────────────────────────────
+
+model User {
+  id          String   @id // Firebase UID
+  email       String   @unique
+  displayName String?
+  role        String   @default("recruiter") // admin | recruiter | viewer
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  companyLists       CompanyList[]
+  searchJobs         SearchJob[]
+  senderAccounts     SenderAccount[]
+  templates          Template[]
+  outreachThreads    OutreachThread[]
+  candidateDirectory CandidateDirectory[]
+
+  @@map("users")
+}
+
+// ─── Company Lists ────────────────────────────────────────────────────────────
+
+model CompanyList {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user       User        @relation(fields: [userId], references: [id])
+  companies  Company[]
+  searchJobs SearchJob[]
+
+  @@map("company_lists")
+}
+
+model Company {
+  id            String   @id @default(uuid())
+  companyListId String   @map("company_list_id")
+  name          String
+  domain        String?
+  linkedinUrl   String?  @map("linkedin_url")
+  size          String?
+  location      String?
+  industry      String?
+  fundingStage  String?  @map("funding_stage")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  companyList CompanyList @relation(fields: [companyListId], references: [id], onDelete: Cascade)
+
+  @@index([companyListId])
+  @@map("companies")
+}
+
+// ─── Search Jobs ──────────────────────────────────────────────────────────────
+
+model SearchJob {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  companyListId String?  @map("company_list_id")
+  name          String?
+  status        String   @default("pending") // pending | running | completed | failed
+
+  // Filters
+  titles          String[]
+  titleContains   String[]  @map("title_contains")
+  departments     String[]
+  seniorities     String[]
+  minExperience   Int?      @map("min_experience")
+  maxExperience   Int?      @map("max_experience")
+  locations       String[]
+  keywords        String[]
+  excludeKeywords String[]  @map("exclude_keywords")
+  vendor          String?
+
+  // Stats
+  candidatesFound Int    @default(0) @map("candidates_found")
+  errorMessage    String? @map("error_message")
+
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  user               User                  @relation(fields: [userId], references: [id])
+  companyList        CompanyList?          @relation(fields: [companyListId], references: [id])
+  candidateResults   CandidateSearchResult[]
+  outreachThreads    OutreachThread[]
+  candidateDirectory CandidateDirectory[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("search_jobs")
+}
+
+// ─── Candidates ───────────────────────────────────────────────────────────────
+
+model Candidate {
+  id              String   @id @default(uuid())
+  firstName       String?  @map("first_name")
+  lastName        String?  @map("last_name")
+  fullName        String?  @map("full_name")
+  linkedinUrl     String?  @unique @map("linkedin_url")
+  currentTitle    String?  @map("current_title")
+  companyName     String?  @map("company_name")
+  companyDomain   String?  @map("company_domain")
+  location        String?
+  yearsExperience Int?     @map("years_experience")
+  keywords        Json?    // string[]
+  sourceVendor    String?  @map("source_vendor")
+  score           Int?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  searchResults   CandidateSearchResult[]
+  enrichments     CandidateEnrichment[]
+  outreachThreads OutreachThread[]
+  outreachEvents  OutreachEvent[]
+  emailDrafts     EmailDraft[]
+  emailSends      EmailSend[]
+  emailResponses  EmailResponse[]
+  directoryEntry  CandidateDirectory?
+
+  @@index([companyName], map: "idx_candidates_company_name")
+  @@index([currentTitle], map: "idx_candidates_current_title")
+  @@index([fullName], map: "idx_candidates_full_name")
+  @@map("candidates")
+}
+
+model CandidateSearchResult {
+  id          String   @id @default(uuid())
+  candidateId String   @map("candidate_id")
+  searchJobId String   @map("search_job_id")
+  selected    Boolean  @default(true)
+  rawPayload  Json?    @map("raw_payload")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  candidate Candidate @relation(fields: [candidateId], references: [id])
+  searchJob SearchJob @relation(fields: [searchJobId], references: [id])
+
+  @@unique([candidateId, searchJobId])
+  @@index([searchJobId])
+  @@map("candidate_search_results")
+}
+
+// ─── Enrichments ──────────────────────────────────────────────────────────────
+
+model CandidateEnrichment {
+  id                 String   @id @default(uuid())
+  candidateId        String   @map("candidate_id")
+  personalEmail      String?  @map("personal_email")
+  verificationStatus String?  @map("verification_status") // verified | unverified | unknown
+  vendorName         String?  @map("vendor_name")
+  confidenceScore    Decimal? @map("confidence_score")
+  rawPayload         Json?    @map("raw_payload")
+  enrichedAt         DateTime @default(now()) @map("enriched_at")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  candidate Candidate @relation(fields: [candidateId], references: [id])
+
+  @@index([candidateId], map: "idx_candidate_enrichments_candidate_id")
+  @@index([personalEmail], map: "idx_candidate_enrichments_personal_email")
+  @@index([vendorName], map: "idx_candidate_enrichments_vendor_name")
+  @@map("candidate_enrichments")
+}
+
+// ─── Candidate Directory (denormalized read model) ────────────────────────────
+
+model CandidateDirectory {
+  id                       String   @id @default(uuid())
+  candidateId              String   @unique @map("candidate_id")
+  fullName                 String?  @map("full_name")
+  firstName                String?  @map("first_name")
+  lastName                 String?  @map("last_name")
+  currentTitle             String?  @map("current_title")
+  companyName              String?  @map("company_name")
+  location                 String?
+  yearsExperience          Int?     @map("years_experience")
+  linkedinUrl              String?  @map("linkedin_url")
+  personalEmail            String?  @map("personal_email")
+  verificationStatus       String?  @map("verification_status")
+  enrichmentVendor         String?  @map("enrichment_vendor")
+  enrichmentConfidenceScore Decimal? @map("enrichment_confidence_score")
+
+  // Outreach state
+  latestOutreachStatus     String   @default("not_contacted") @map("latest_outreach_status")
+  latestDraftedAt          DateTime? @map("latest_drafted_at")
+  latestSentAt             DateTime? @map("latest_sent_at")
+  latestRespondedAt        DateTime? @map("latest_responded_at")
+  latestBouncedAt          DateTime? @map("latest_bounced_at")
+  latestSenderAccountEmail String?  @map("latest_sender_account_email")
+
+  // Ownership / provenance
+  ownerUserId       String?  @map("owner_user_id")
+  sourceSearchJobId String?  @map("source_search_job_id")
+
+  // Full-text search vector (managed via DB trigger — see migration)
+  // searchVector is Unsupported("tsvector") — queried via raw SQL
+  searchVector      Unsupported("tsvector")? @map("search_vector")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  candidate       Candidate  @relation(fields: [candidateId], references: [id])
+  owner           User?      @relation(fields: [ownerUserId], references: [id])
+  sourceSearchJob SearchJob? @relation(fields: [sourceSearchJobId], references: [id])
+
+  @@index([companyName], map: "idx_candidate_directory_company_name")
+  @@index([currentTitle], map: "idx_candidate_directory_current_title")
+  @@index([latestOutreachStatus], map: "idx_candidate_directory_outreach_status")
+  @@index([latestSenderAccountEmail], map: "idx_candidate_directory_sender")
+  @@index([ownerUserId], map: "idx_candidate_directory_owner")
+  @@map("candidate_directory")
+}
+
+// ─── Outreach ─────────────────────────────────────────────────────────────────
+
+model OutreachThread {
+  id                 String    @id @default(uuid())
+  candidateId        String    @map("candidate_id")
+  searchJobId        String?   @map("search_job_id")
+  senderAccountId    String    @map("sender_account_id")
+  userId             String    @map("user_id")
+  currentStatus      String    @default("not_contacted") @map("current_status")
+  latestSubject      String?   @map("latest_subject")
+  latestBodySnapshot String?   @map("latest_body_snapshot")
+  lastEventAt        DateTime? @map("last_event_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  candidate     Candidate     @relation(fields: [candidateId], references: [id])
+  searchJob     SearchJob?    @relation(fields: [searchJobId], references: [id])
+  senderAccount SenderAccount @relation(fields: [senderAccountId], references: [id])
+  user          User          @relation(fields: [userId], references: [id])
+
+  events    OutreachEvent[]
+  drafts    EmailDraft[]
+  sends     EmailSend[]
+  responses EmailResponse[]
+
+  @@index([candidateId])
+  @@index([currentStatus])
+  @@map("outreach_threads")
+}
+
+model OutreachEvent {
+  id               String   @id @default(uuid())
+  candidateId      String   @map("candidate_id")
+  outreachThreadId String?  @map("outreach_thread_id")
+  // draft_created | email_sent | response_received | bounce_received | status_manually_updated
+  eventType        String   @map("event_type")
+  statusAfterEvent String?  @map("status_after_event")
+  senderAccountId  String?  @map("sender_account_id")
+  emailDraftId     String?  @map("email_draft_id")
+  emailSendId      String?  @map("email_send_id")
+  emailResponseId  String?  @map("email_response_id")
+  metadata         Json?
+  occurredAt       DateTime @default(now()) @map("occurred_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  candidate      Candidate       @relation(fields: [candidateId], references: [id])
+  outreachThread OutreachThread? @relation(fields: [outreachThreadId], references: [id])
+
+  @@index([candidateId])
+  @@index([outreachThreadId])
+  @@index([eventType])
+  @@map("outreach_events")
+}
+
+// ─── Email ────────────────────────────────────────────────────────────────────
+
+model EmailDraft {
+  id               String   @id @default(uuid())
+  candidateId      String   @map("candidate_id")
+  outreachThreadId String   @map("outreach_thread_id")
+  senderAccountId  String   @map("sender_account_id")
+  templateId       String?  @map("template_id")
+  subjectRendered  String?  @map("subject_rendered")
+  bodyRendered     String?  @map("body_rendered")
+  cc               Json?
+  bcc              Json?
+  status           String   @default("draft") // draft | sent
+  draftProviderId  String?  @map("draft_provider_id")
+  draftedAt        DateTime @default(now()) @map("drafted_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  candidate      Candidate      @relation(fields: [candidateId], references: [id])
+  outreachThread OutreachThread @relation(fields: [outreachThreadId], references: [id])
+  senderAccount  SenderAccount  @relation(fields: [senderAccountId], references: [id])
+  template       Template?      @relation(fields: [templateId], references: [id])
+
+  @@index([candidateId])
+  @@index([outreachThreadId])
+  @@map("email_drafts")
+}
+
+model EmailSend {
+  id                String   @id @default(uuid())
+  candidateId       String   @map("candidate_id")
+  outreachThreadId  String   @map("outreach_thread_id")
+  senderAccountId   String   @map("sender_account_id")
+  emailDraftId      String?  @map("email_draft_id")
+  providerMessageId String?  @map("provider_message_id")
+  providerThreadId  String?  @map("provider_thread_id")
+  subjectRendered   String?  @map("subject_rendered")
+  bodyRendered      String?  @map("body_rendered")
+  cc                Json?
+  bcc               Json?
+  status            String   @default("sent") // sent | failed | bounced
+  sentAt            DateTime @default(now()) @map("sent_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  candidate      Candidate      @relation(fields: [candidateId], references: [id])
+  outreachThread OutreachThread @relation(fields: [outreachThreadId], references: [id])
+  senderAccount  SenderAccount  @relation(fields: [senderAccountId], references: [id])
+
+  @@index([candidateId])
+  @@index([providerThreadId])
+  @@map("email_sends")
+}
+
+model EmailResponse {
+  id               String   @id @default(uuid())
+  candidateId      String   @map("candidate_id")
+  outreachThreadId String   @map("outreach_thread_id")
+  senderAccountId  String   @map("sender_account_id")
+  providerThreadId String?  @map("provider_thread_id")
+  providerMessageId String? @map("provider_message_id")
+  fromEmail        String?  @map("from_email")
+  subject          String?
+  bodyExcerpt      String?  @map("body_excerpt")
+  isBounce         Boolean  @default(false) @map("is_bounce")
+  receivedAt       DateTime @default(now()) @map("received_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  candidate      Candidate      @relation(fields: [candidateId], references: [id])
+  outreachThread OutreachThread @relation(fields: [outreachThreadId], references: [id])
+  senderAccount  SenderAccount  @relation(fields: [senderAccountId], references: [id])
+
+  @@index([candidateId])
+  @@index([providerThreadId])
+  @@index([isBounce])
+  @@map("email_responses")
+}
+
+// ─── Sender Accounts ──────────────────────────────────────────────────────────
+
+model SenderAccount {
+  id             String    @id @default(uuid())
+  userId         String    @map("user_id")
+  // gmail | google_workspace | outlook | office365
+  provider       String
+  email          String
+  displayName    String?   @map("display_name")
+  // Tokens are stored in Secret Manager in production;
+  // these fields hold the Secret Manager resource names, not raw tokens
+  accessTokenRef  String?  @map("access_token_ref")
+  refreshTokenRef String?  @map("refresh_token_ref")
+  tokenExpiresAt DateTime? @map("token_expires_at")
+  dailySendLimit Int       @default(100) @map("daily_send_limit")
+  sendDelay      Int       @default(5) @map("send_delay") // seconds
+  signature      String?
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  user            User             @relation(fields: [userId], references: [id])
+  outreachThreads OutreachThread[]
+  drafts          EmailDraft[]
+  sends           EmailSend[]
+  responses       EmailResponse[]
+
+  @@unique([userId, email])
+  @@map("sender_accounts")
+}
+
+// ─── Templates ────────────────────────────────────────────────────────────────
+
+model Template {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  name            String
+  subjectTemplate String?  @map("subject_template")
+  bodyTemplate    String?  @map("body_template")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user   User         @relation(fields: [userId], references: [id])
+  drafts EmailDraft[]
+
+  @@map("templates")
+}
+
+// ─── Suppression List ─────────────────────────────────────────────────────────
+
+model SuppressionList {
+  id        String   @id @default(uuid())
+  email     String?  @unique
+  domain    String?  @unique
+  reason    String?
+  addedBy   String?  @map("added_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("suppression_list")
+}
+
+// ─── Vendor Usage Logs ────────────────────────────────────────────────────────
+
+model VendorUsageLog {
+  id              String   @id @default(uuid())
+  vendorName      String   @map("vendor_name")
+  operation       String   // search | enrichment
+  requestPayload  Json?    @map("request_payload")
+  responseCode    Int?     @map("response_code")
+  recordsReturned Int?     @map("records_returned")
+  costUnits       Decimal? @map("cost_units")
+  userId          String?  @map("user_id")
+  searchJobId     String?  @map("search_job_id")
+  candidateId     String?  @map("candidate_id")
+  occurredAt      DateTime @default(now()) @map("occurred_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([vendorName])
+  @@index([operation])
+  @@index([occurredAt])
+  @@map("vendor_usage_logs")
+}

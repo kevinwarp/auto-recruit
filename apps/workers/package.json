@@ -1,0 +1,32 @@
+{
+  "name": "@auto-recruit/workers",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch --env-file=../../.env src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@auto-recruit/config": "workspace:*",
+    "@auto-recruit/db": "workspace:*",
+    "@auto-recruit/types": "workspace:*",
+    "@google-cloud/error-reporting": "^3.0.0",
+    "@google-cloud/pubsub": "^4.4.0",
+    "@google-cloud/secret-manager": "^5.0.0",
+    "@google-cloud/storage": "^7.12.0",
+    "csv-stringify": "^6.5.0",
+    "dotenv": "^16.4.0",
+    "express": "^4.19.0",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.0",
+    "@types/uuid": "^10.0.0",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0"
+  }
+}

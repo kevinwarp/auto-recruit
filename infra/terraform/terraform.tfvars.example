@@ -1,0 +1,40 @@
+# Copy to terraform.tfvars and fill in values
+# terraform.tfvars is git-ignored — never commit secrets
+
+# ── Required ──────────────────────────────────────────────────────────────────
+
+project_id  = "contact-search-489223"
+region      = "us-central1"
+environment = "development" # development | staging | production
+
+db_password = "" # Postgres password — keep out of VCS
+
+# ── Cloud Build (required for CI/CD triggers) ─────────────────────────────────
+
+github_owner = ""           # GitHub user or org, e.g. "kevinweatherman"
+github_repo  = "auto-recruit"
+
+# ── Firebase (required for web builds) ────────────────────────────────────────
+
+firebase_project_id = "contact-search-489223"
+firebase_api_key    = "" # Firebase web API key (safe to embed in client)
+firebase_app_id     = "" # Firebase web app ID
+
+# ── Monitoring ────────────────────────────────────────────────────────────────
+
+alert_email = "" # Email for uptime/error alerts
+
+# ── Optional overrides ────────────────────────────────────────────────────────
+
+# db_tier              = "db-f1-micro"   # upgrade for prod: db-g1-small, db-custom-2-8192
+# db_name              = "auto_recruit"
+# db_user              = "auto_recruit"
+# redis_memory_size_gb = 1               # increase for prod
+
+# workers_url = ""  # Set after first deploy to wire Pub/Sub push subscriptions
+#                    # e.g. "https://auto-recruit-workers-xxxxx-uc.a.run.app"
+
+# Image overrides (defaults point to Artifact Registry):
+# api_image     = "us-central1-docker.pkg.dev/contact-search-489223/auto-recruit/api:latest"
+# workers_image = "us-central1-docker.pkg.dev/contact-search-489223/auto-recruit/workers:latest"
+# web_image     = "us-central1-docker.pkg.dev/contact-search-489223/auto-recruit/web:latest"
