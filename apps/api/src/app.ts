@@ -11,6 +11,7 @@ import { outreachRouter } from './routes/outreach.js';
 import { candidatesRouter } from './routes/candidates.js';
 import { templatesRouter } from './routes/templates.js';
 import { senderAccountsRouter } from './routes/sender-accounts.js';
+import { campaignsRouter } from './routes/campaigns.js';
 
 export function createApp() {
   const app = express();
@@ -51,6 +52,7 @@ export function createApp() {
   app.use('/api/outreach', outreachRouter);
   app.use('/api/templates', templatesRouter);
   app.use('/api/sender-accounts', senderAccountsRouter);
+  app.use('/api/campaigns', campaignsRouter);
 
   // ── 404 — must come after all routes ────────────────────────────────────────
   app.use((_req, _res, next) => {

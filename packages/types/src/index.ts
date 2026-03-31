@@ -151,7 +151,104 @@ export interface CandidateDirectoryFilters extends PaginationParams {
   responseDateTo?: string;
 }
 
-// ─── Pub/Sub Message Payloads ─────────────────────────────────────────────────
+// ─── Campaigns ────────────────────────────────────────────────────────────────
+
+export type CampaignStatus = 'draft' | 'running' | 'paused' | 'completed' | 'failed';
+export type PipelineStageStatus = 'pending' | 'running' | 'completed' | 'failed';
+
+export interface CampaignPipelineStage {
+  status: PipelineStageStatus;
+  progress: number;
+  total: number;
+  startedAt: string | null;
+  completedAt: string | null;
+}
+
+export interface CampaignStats {
+  candidatesFound: number;
+  candidatesEnriched: number;
+  emailsSent: number;
+  replies: number;
+  bounces: number;
+}
+
+export interface CampaignSummary {
+  id: string;
+  name: string;
+  status: CampaignStatus;
+  createdAt: string;
+  updatedAt: string;
+  searchCriteria: {
+    companyListName: string;
+    jobTitles: string[];
+    locations: string[];
+  };
+  stats: CampaignStats;
+  templateName: string | null;
+  senderEmail: string | null;
+}
+
+export interface CampaignDetail {
+  id: string;
+  name: string;
+  status: CampaignStatus;
+  createdAt: string;
+  updatedAt: string;
+  searchCriteria: {
+    companyListName: string;
+    jobTitles: string[];
+    locations: string[];
+    requiredKeywords: string[];
+    excludedKeywords: string[];
+    minScore: number;
+    maxResults: number;
+  };
+  enrichment: {
+    enabled: boolean;
+    minScore: number;
+  };
+  outreach: {
+    enabled: boolean;
+    templateName: string | null;
+    senderEmail: string | null;
+    dailyLimit: number;
+  };
+  pipeline: {
+    search: CampaignPipelineStage;
+    enrichment: CampaignPipelineStage;
+    outreach: CampaignPipelineStage;
+  };
+  stats: CampaignStats;
+}
+
+export interface CreateCampaignBody {
+  name: string;
+  companyListId: string;
+  search: {
+    jobTitles: string[];
+    locations: string[];
+    requiredKeywords: string[];
+    excludedKeywords: string[];
+    minScore: number;
+    maxResults: number;
+  };
+  enrichment: {
+    enabled: boolean;
+    minScore: number;
+  };
+  outreach: {
+    enabled: boolean;
+    templateId: string | null;
+    senderAccountId: string | null;
+    dailyLimit: number;
+  };
+  schedule: {
+    startImmediately: boolean;
+    scheduledAt: string | null;
+  };
+}
+
+// ─── Pub/Sub Message Payloads ──────────────────────────────────────────────────────
 
 export interface CandidateSearchMessage {
   searchJobId: string;

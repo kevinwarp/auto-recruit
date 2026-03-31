@@ -28,6 +28,7 @@ model User {
   templates          Template[]
   outreachThreads    OutreachThread[]
   candidateDirectory CandidateDirectory[]
+  campaigns          Campaign[]
 
   @@map("users")
 }
@@ -44,6 +45,7 @@ model CompanyList {
   user       User        @relation(fields: [userId], references: [id])
   companies  Company[]
   searchJobs SearchJob[]
+  campaigns  Campaign[]
 
   @@map("company_lists")
 }
@@ -101,6 +103,7 @@ model SearchJob {
   candidateResults   CandidateSearchResult[]
   outreachThreads    OutreachThread[]
   candidateDirectory CandidateDirectory[]
+  campaign           Campaign?
 
   @@index([userId])
   @@index([status])
@@ -383,6 +386,7 @@ model SenderAccount {
   drafts          EmailDraft[]
   sends           EmailSend[]
   responses       EmailResponse[]
+  campaigns       Campaign[]
 
   @@unique([userId, email])
   @@map("sender_accounts")
@@ -399,10 +403,81 @@ model Template {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  user   User         @relation(fields: [userId], references: [id])
-  drafts EmailDraft[]
+  user      User         @relation(fields: [userId], references: [id])
+  drafts    EmailDraft[]
+  campaigns Campaign[]
 
   @@map("templates")
+}
+
+// ─── Campaigns ────────────────────────────────────────────────────────────────
+
+model Campaign {
+  id     String @id @default(uuid())
+  userId String @map("user_id")
+  name   String
+
+  // draft | running | paused | completed | failed
+  status String @default("draft")
+
+  // ── Config ──────────────────────────────────────────────────────────────────
+  companyListId   String  @map("company_list_id")
+  templateId      String? @map("template_id")
+  senderAccountId String? @map("sender_account_id")
+
+  // Search criteria
+  jobTitles        String[] @map("job_titles")
+  locations        String[]
+  requiredKeywords String[] @map("required_keywords")
+  excludedKeywords String[] @map("excluded_keywords")
+  minScore         Int      @default(50)  @map("min_score")
+  maxResults       Int      @default(200) @map("max_results")
+
+  // Enrichment config
+  autoEnrich     Boolean @default(true) @map("auto_enrich")
+  enrichMinScore Int     @default(60)   @map("enrich_min_score")
+
+  // Outreach config
+  autoOutreach Boolean @default(true) @map("auto_outreach")
+  dailyLimit   Int     @default(50)   @map("daily_limit")
+
+  // Schedule
+  scheduledAt DateTime? @map("scheduled_at")
+
+  // ── Pipeline: search ────────────────────────────────────────────────────────
+  searchJobId          String?   @unique @map("search_job_id")
+  searchStatus         String    @default("pending")  @map("search_status")
+  searchProgress       Int       @default(0)          @map("search_progress")
+  searchTotal          Int       @default(0)          @map("search_total")
+  searchStartedAt      DateTime? @map("search_started_at")
+  searchCompletedAt    DateTime? @map("search_completed_at")
+
+  // ── Pipeline: enrichment ─────────────────────────────────────────────────────
+  enrichmentStatus      String    @default("pending") @map("enrichment_status")
+  enrichmentProgress    Int       @default(0)         @map("enrichment_progress")
+  enrichmentTotal       Int       @default(0)         @map("enrichment_total")
+  enrichmentStartedAt   DateTime? @map("enrichment_started_at")
+  enrichmentCompletedAt DateTime? @map("enrichment_completed_at")
+
+  // ── Pipeline: outreach ───────────────────────────────────────────────────────
+  outreachStatus      String    @default("pending") @map("outreach_status")
+  outreachProgress    Int       @default(0)         @map("outreach_progress")
+  outreachTotal       Int       @default(0)         @map("outreach_total")
+  outreachStartedAt   DateTime? @map("outreach_started_at")
+  outreachCompletedAt DateTime? @map("outreach_completed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  user          User           @relation(fields: [userId], references: [id])
+  companyList   CompanyList    @relation(fields: [companyListId], references: [id])
+  template      Template?      @relation(fields: [templateId], references: [id])
+  senderAccount SenderAccount? @relation(fields: [senderAccountId], references: [id])
+  searchJob     SearchJob?     @relation(fields: [searchJobId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@map("campaigns")
 }
 
 // ─── Suppression List ─────────────────────────────────────────────────────────

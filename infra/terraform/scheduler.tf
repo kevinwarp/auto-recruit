@@ -1,3 +1,35 @@
+resource "google_cloud_scheduler_job" "advance_campaigns" {
+  project     = var.project_id
+  name        = "advance-campaigns"
+  description = "Advance campaign pipeline stages every 2 minutes"
+  schedule    = "*/2 * * * *"
+  time_zone   = "UTC"
+  region      = var.region
+  depends_on  = [google_project_service.apis]
+
+  http_target {
+    uri         = "${google_cloud_run_v2_service.workers.uri}/jobs/advance-campaigns"
+    http_method = "POST"
+    body        = base64encode("{}")
+    headers = {
+      "Content-Type" = "application/json"
+    }
+
+    oidc_token {
+      service_account_email = google_service_account.workers.email
+      audience              = google_cloud_run_v2_service.workers.uri
+    }
+  }
+
+  retry_config {
+    retry_count          = 1
+    max_retry_duration   = "60s"
+    min_backoff_duration = "5s"
+    max_backoff_duration = "30s"
+    max_doublings        = 2
+  }
+}
+
 resource "google_cloud_scheduler_job" "poll_responses" {
   project     = var.project_id
   name        = "poll-responses"

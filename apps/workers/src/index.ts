@@ -7,6 +7,7 @@ import { handleCandidateEnrichment } from './handlers/enrichment.js';
 import { handleDirectoryRefresh } from './handlers/directory.js';
 import { handleCsvExport } from './handlers/csv-export.js';
 import { pollResponses } from './handlers/response-polling.js';
+import { advanceCampaigns } from './handlers/campaign.js';
 import { reportError, log } from './lib/reporter.js';
 
 const env = loadEnv();
@@ -27,6 +28,19 @@ process.on('unhandledRejection', (reason) => {
 // ── Health checks ──────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 app.get('/ready', (_req, res) => res.json({ status: 'ready' }));
+
+// ── Cloud Scheduler: advance campaign pipelines (every 2 min) ─────────────────
+app.post('/jobs/advance-campaigns', async (_req, res) => {
+  const start = Date.now();
+  try {
+    await advanceCampaigns();
+    log('INFO', '[jobs] advance-campaigns completed', { durationMs: String(Date.now() - start) });
+    res.json({ status: 'ok' });
+  } catch (err) {
+    reportError(err, { job: 'advance-campaigns' });
+    res.status(500).json({ error: 'advance-campaigns failed' });
+  }
+});
 
 // ── Cloud Scheduler: response + bounce polling (every 10 min) ──────────────────
 app.post('/jobs/poll-responses', async (_req, res) => {
